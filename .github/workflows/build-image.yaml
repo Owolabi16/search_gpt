@@ -35,8 +35,8 @@ on:
         value: ${{ jobs.build-image.outputs.docker-repo }}
 
 env:
-  REGISTRY: hub.docker.com/u/owolabialiu
-  DOCKER_HUB_USER: owolabialiu
+  REGISTRY: registry.hub.docker.com
+  DOCKER_HUB_USER: Owolabialiu
 
 jobs:
   build-image:
@@ -124,8 +124,8 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ${{ env.REGISTRY }}
-          username: ocassio-machine
-          password: ${{ github.token }}
+          username: Owolabi16
+          password: ${{ github.PAT_TOKEN }}
       - name: Checkout Repo for .grype.yaml
         uses: actions/checkout@v3
       - name: Security Scan
