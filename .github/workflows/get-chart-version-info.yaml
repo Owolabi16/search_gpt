@@ -58,10 +58,10 @@ jobs:
       - name: Generate Docs
         continue-on-error: true
         if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
-        uses: norwoodj/helm-docs-action@v1.11.0
+        uses: docker://jnorwood/helm-docs:v1.11.0
         with:
-          helm-docs-version: ${{ inputs.chart_tag }}
-          chart-dir: ${{ inputs.chart_dir }}
+          entrypoint: helm-docs
+          args: --chart-dir ${{ inputs.chart_dir }}
       - name: Install Dependencies
         run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
       - name: Helm Lint
