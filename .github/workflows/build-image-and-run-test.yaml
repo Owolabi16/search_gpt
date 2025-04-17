@@ -43,7 +43,7 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       docker-arch: linux/arm64
-      custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
+      # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
@@ -53,9 +53,9 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       docker-arch: linux/arm64
-      dockerfile-path: "./Dockerfile.agentflows"
-      custom-image-name: agent-flows
-      custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
+      # dockerfile-path: "./Dockerfile.agentflows"
+      # custom-image-name: agent-flows
+      # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
@@ -65,8 +65,8 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       docker-arch: linux/arm64
-      build-target: "migration"
-      custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
+      # build-target: "migration"
+      # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
@@ -76,10 +76,10 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       docker-arch: linux/arm64
-      build-target: "migration"
-      dockerfile-path: "./Dockerfile.agentflows"
-      custom-image-name: agent-flows
-      custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
+      # build-target: "migration"
+      # dockerfile-path: "./Dockerfile.agentflows"
+      # custom-image-name: agent-flows
+      # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
