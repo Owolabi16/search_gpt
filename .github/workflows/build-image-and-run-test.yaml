@@ -23,7 +23,7 @@ jobs:
     uses: ./.github/workflows/get-chart-version-info.yaml
     secrets: inherit
     with:
-      chart_dir: "./charts/gpt-search/Chart.yaml"
+      chart_dir: .github/workflows/charts/gpt-search/Chart.yaml
       chart_overwrite: false
   
   agent-flows-version:
