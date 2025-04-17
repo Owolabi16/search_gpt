@@ -41,7 +41,7 @@ env:
 jobs:
   build-image:
     name: Build Image With Dockerfile Target '${{ inputs.build-target }}'
-    runs-on: occasio-runner-fleet
+    runs-on: ubuntu-latest
     outputs:
       docker-tag: ${{ steps.meta.outputs.version }}
       docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
