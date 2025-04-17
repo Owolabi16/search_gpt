@@ -31,7 +31,7 @@ jobs:
     with:
       chart-path: ${{ matrix.component.chart-path }}
       # Add a custom output identifier to differentiate outputs
-      # output-prefix: ${{ matrix.component.name }}
+      output-prefix: ${{ matrix.component.name }}
 
   python-linter:
     uses: ./.github/workflows/python-linter.yaml@development
