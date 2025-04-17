@@ -19,7 +19,7 @@ jobs:
   # Consolidated version jobs using a matrix
   get-versions:
     name: Get Chart Versions
-    uses: .github/workflows/get-chart-version-info.yaml@build-image-test
+    uses: ./.github/workflows/get-chart-version-info.yaml
     strategy:
       matrix:
         component:
@@ -31,18 +31,18 @@ jobs:
     with:
       chart-path: ${{ matrix.component.chart-path }}
       # Add a custom output identifier to differentiate outputs
-      output-prefix: ${{ matrix.component.name }}
+      # output-prefix: ${{ matrix.component.name }}
 
   python-linter:
-    uses: occasio-technology-solutions/infra/.github/workflows/python-linter.yaml@development
+    uses: ./.github/workflows/python-linter.yaml@development
     secrets:
-      repo_token: "${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      repo_token: "${{ secrets.TOKEN }}"
 
   # Consolidated build jobs using a matrix
   build-images:
     needs: [get-versions, python-linter]
     name: Build ${{ matrix.component.name }} ${{ matrix.build-type }} Image
-    uses: occasio-technology-solutions/infra/.github/workflows/build-image.yaml@build-image-test
+    uses: ./.github/workflows/build-image.yaml@build-image-test
     strategy:
       matrix:
         component:
@@ -64,7 +64,7 @@ jobs:
       custom-image-tag: ${{ needs.get-versions.outputs[matrix.component.version-output] }}
       build-target: ${{ matrix.build-type.target }}
     secrets:
-      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      docker-build-secrets: "github_pat=${{ secrets.TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
 
   # Keep the test job unchanged
