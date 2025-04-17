@@ -122,11 +122,7 @@ jobs:
           file: ${{ inputs.dockerfile-path }}
           platforms: ${{ inputs.docker-arch }}
           pull: true
-          no-cache: false
-          # Remove or comment out the secrets line if you don't need build secrets
-          # secrets: ${{ secrets.docker-build-secrets }}
-          cache-from: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}:buildcache
-          cache-to: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}:buildcache,mode=max
+          no-cache: true  # Set to true to disable caching
           target: ${{ inputs.build-target }}
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
