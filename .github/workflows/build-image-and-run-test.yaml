@@ -23,8 +23,7 @@ jobs:
     uses: ./.github/workflows/get-chart-version-info.yaml
     secrets: inherit
     with:
-      chart-path: "./charts/gpt-search/Chart.yaml"
-      chart_dir: "charts"
+      chart_dir: "./charts/gpt-search/Chart.yaml"
       chart_overwrite: "yes"
   
   agent-flows-version:
@@ -32,8 +31,7 @@ jobs:
     uses: ./.github/workflows/get-chart-version-info.yaml
     secrets: inherit
     with:
-      chart-path: "./charts/agent-flows/Chart.yaml"
-      chart_dir: "charts"
+      chart_dir: "./charts/agent-flows/Chart.yaml"
       chart_overwrite: "yes"
   # python-linter:
   #   uses: occasio-technology-solutions/infra/.github/workflows/python-linter.yaml@development
