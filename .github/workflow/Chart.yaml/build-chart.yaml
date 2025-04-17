@@ -1,0 +1,73 @@
+name: Build & Push Helm Chart
+on:
+  workflow_call:
+    inputs:
+      gpt_chart_tag:
+        description: "Force Version Override for GPT Chart?"
+        required: false
+        type: string
+        default: ""
+      gpt_chart_overwrite:
+        description: "Force GPT Chart Overwrite?"
+        required: true
+        type: boolean
+        default: false
+      agent_flow_chart_tag:
+        description: "Force Version Override for Agent Flow?"
+        required: false
+        type: string
+        default: ""
+      agent_flow_chart_overwrite:
+        description: "Force Agent Flow Chart Overwrite?"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gpt-chart-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+      
+      - name: Package GPT Helm chart
+        run: |
+          echo "Packaging GPT Helm chart with tag: ${{ inputs.gpt_chart_tag }}"
+          echo "Overwrite enabled: ${{ inputs.gpt_chart_overwrite }}"
+          
+          # In a real workflow, this would package and push the chart
+          helm package charts/gpt-search --version ${{ inputs.gpt_chart_tag || '1.0.0' }}
+          
+          # Simulate push to repository
+          echo "Chart would be pushed to repository with overwrite=${{ inputs.gpt_chart_overwrite }}"
+  
+  agent-chart-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'latest'
+      
+      - name: Package Agent Flow Helm chart
+        run: |
+          echo "Packaging Agent Flow Helm chart with tag: ${{ inputs.agent_flow_chart_tag }}"
+          echo "Overwrite enabled: ${{ inputs.agent_flow_chart_overwrite }}"
+          
+          # In a real workflow, this would package and push the chart
+          helm package charts/agent-flows --version ${{ inputs.agent_flow_chart_tag || '1.0.0' }}
+          
+          # Simulate push to repository
+          echo "Chart would be pushed to repository with overwrite=${{ inputs.agent_flow_chart_overwrite }}"
