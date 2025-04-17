@@ -52,13 +52,13 @@ jobs:
           --password-stdin
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre_build_script }}'
-      - name: Generate Docs
-        continue-on-error: true
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: occasio-technology-solutions/helm-docs-action@occasio-development
-        with:
-          working-dir: ${{ inputs.chart_dir }}
-          git-push: "true"
+      # - name: Generate Docs
+      #   continue-on-error: true
+      #   if: ${{ github.event_name == 'pull_request' }}
+      #   uses: occasio-technology-solutions/helm-docs-action@occasio-development
+      #   with:
+      #     working-dir: ${{ inputs.chart_dir }}
+      #     git-push: "true"
       - name: Install Dependencies
         run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
       - name: Helm Lint
