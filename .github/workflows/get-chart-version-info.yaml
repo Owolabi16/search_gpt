@@ -49,10 +49,12 @@ jobs:
         with:
           username: owolabialiu
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      - name: Login to Helm Registry
-        run: echo ${{ secrets.DOCKER_HUB_TOKEN }} | helm registry login registry.hub.docker.com --username owolabialiu --password-stdin
-        env:
-          REGISTRY: registry.hub.docker.com
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre_build_script }}'
       - name: Generate Docs
@@ -88,13 +90,16 @@ jobs:
       - name: Chart Registry Overwrite Protection
         if: ${{ inputs.chart_overwrite == false }}
         run: '! $(helm pull oci://$REGISTRY/chart/$CHART_NAME --version $CHART_TAG)'
-      - name: Release Helm Chart to GHCR
+      - name: Release Helm Chart
         uses: appany/helm-oci-chart-releaser@v0.4.0
         with:
           name: ${{ env.CHART_NAME }}
-          repository: owolabialiu/chart
+          repository: ${{ github.repository_owner }}/charts
           tag: ${{ env.CHART_TAG }}
           path: ${{ inputs.chart_dir }}
-          registry: ${{ env.REGISTRY }}
-          registry_username: owolabialiu
-          registry_password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          registry: ghcr.io
+          registry_username: ${{ github.actor }}
+          registry_password: ${{ secrets.PAT_TOKEN }}
+        env:
+          HELM_EXPERIMENTAL_OCI: 1
+
