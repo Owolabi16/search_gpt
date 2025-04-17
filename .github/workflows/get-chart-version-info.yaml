@@ -30,7 +30,7 @@ jobs:
   helm-chart-release:
     runs-on: ubuntu-latest
     env:
-      REGISTRY: registry.hub.docker.com
+      REGISTRY: index.docker.io
       CHART_TAG: ${{ inputs.chart_tag }}
       HELM_TEMPLATE: template.yaml
       DOCKER_HUB_USER: owolabialiu
