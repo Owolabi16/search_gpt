@@ -92,7 +92,7 @@ jobs:
         uses: appany/helm-oci-chart-releaser@v0.4.0
         with:
           name: ${{ env.CHART_NAME }}
-          repository: "chart"
+          repository: owolabialiu/chart
           tag: ${{ env.CHART_TAG }}
           path: ${{ inputs.chart_dir }}
           registry: ${{ env.REGISTRY }}
