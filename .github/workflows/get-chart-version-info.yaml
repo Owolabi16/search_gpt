@@ -30,7 +30,7 @@ jobs:
   helm-chart-release:
     runs-on: ubuntu-latest
     env:
-      REGISTRY: hub.docker.com/u/owolabialiu
+      REGISTRY: registry.hub.docker.com
       CHART_TAG: ${{ inputs.chart_tag }}
       HELM_TEMPLATE: template.yaml
       DOCKER_HUB_USER: owolabialiu
@@ -55,13 +55,13 @@ jobs:
           REGISTRY: registry.hub.docker.com
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre_build_script }}'
-      # - name: Generate Docs
-      #   continue-on-error: true
-      #   if: ${{ github.event_name == 'pull_request' }}
-      #   uses: occasio-technology-solutions/helm-docs-action@occasio-development
-      #   with:
-      #     working-dir: ${{ inputs.chart_dir }}
-      #     git-push: "true"
+      - name: Generate Docs
+        continue-on-error: true
+        if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+        uses: norwoodj/helm-docs-action@v1
+        with:
+          helm-docs-version: ${{ inputs.chart_tag }}
+          chart-dir: ${{ inputs.chart_dir }}
       - name: Install Dependencies
         run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
       - name: Helm Lint
@@ -91,10 +91,10 @@ jobs:
       - name: Release Helm Chart to GHCR
         uses: appany/helm-oci-chart-releaser@v0.4.0
         with:
-          name: $CHART_NAME
+          name: ${{ env.CHART_NAME }}
           repository: "chart"
-          tag: $CHART_TAG
+          tag: ${{ env.CHART_TAG }}
           path: ${{ inputs.chart_dir }}
           registry: ${{ env.REGISTRY }}
-          registry_username: occasio-machine
-          registry_password: ${{ github.token }}
+          registry_username: owolabialiu
+          registry_password: ${{ secrets.DOCKER_HUB_TOKEN }}
