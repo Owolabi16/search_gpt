@@ -44,12 +44,10 @@ jobs:
         with:
           username: owolabialiu
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      - name: Helm Registry Login
-        run: >
-          echo ${{ github.TOKEN }} |
-          helm registry login $REGISTRY
-          --username occasio-machine
-          --password-stdin
+      - name: Login to Helm Registry
+        run: echo ${{ secrets.DOCKER_HUB_TOKEN }} | helm registry login registry.hub.docker.com --username owolabialiu --password-stdin
+        env:
+          REGISTRY: registry.hub.docker.com
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre_build_script }}'
       # - name: Generate Docs
