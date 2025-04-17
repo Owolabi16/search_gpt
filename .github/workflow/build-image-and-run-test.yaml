@@ -1,0 +1,108 @@
+name: Build and Run Tests
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Consolidated version jobs using a matrix
+  get-versions:
+    name: Get Chart Versions
+    uses: .github/workflows/get-chart-version-info.yaml@build-image-test
+    strategy:
+      matrix:
+        component:
+          - name: gpt-search
+            chart-path: "./charts/gpt-search/Chart.yaml"
+          - name: agent-flows
+            chart-path: "./charts/agent-flows/Chart.yaml"
+    secrets: inherit
+    with:
+      chart-path: ${{ matrix.component.chart-path }}
+      # Add a custom output identifier to differentiate outputs
+      output-prefix: ${{ matrix.component.name }}
+
+  python-linter:
+    uses: occasio-technology-solutions/infra/.github/workflows/python-linter.yaml@development
+    secrets:
+      repo_token: "${{ secrets.GHA_BOT_REPO_TOKEN }}"
+
+  # Consolidated build jobs using a matrix
+  build-images:
+    needs: [get-versions, python-linter]
+    name: Build ${{ matrix.component.name }} ${{ matrix.build-type }} Image
+    uses: occasio-technology-solutions/infra/.github/workflows/build-image.yaml@build-image-test
+    strategy:
+      matrix:
+        component:
+          - name: gpt-search
+            dockerfile: "./Dockerfile"
+            version-output: gpt-search-app-image-tag-version
+          - name: agent-flows
+            dockerfile: "./Dockerfile.agentflows"
+            version-output: agent-flows-app-image-tag-version
+        build-type:
+          - name: standard
+            target: ""
+          - name: migration
+            target: "migration"
+    with:
+      docker-arch: linux/arm64
+      dockerfile-path: ${{ matrix.component.dockerfile }}
+      custom-image-name: ${{ matrix.component.name }}
+      custom-image-tag: ${{ needs.get-versions.outputs[matrix.component.version-output] }}
+      build-target: ${{ matrix.build-type.target }}
+    secrets:
+      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+
+  # Keep the test job unchanged
+  docker-tests:
+    name: Run Tests using Docker Image
+    runs-on: occasio-runner-fleet
+    needs: build-images
+    # This now needs to reference the correct matrix output for gpt-search standard build
+    timeout-minutes: 5
+    env:
+      DOCKER_REPO: ${{ needs.build-images.outputs['matrix-gpt-search-standard-docker-repo'] }}
+      DOCKER_TAG: ${{ needs.build-images.outputs['matrix-gpt-search-standard-docker-tag'] }}
+      DOCKER_TEST_IMAGE_TAG: gpt-search-test
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Build Test Image
+        run: >
+          docker build
+          --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
+          -f Dockerfile.test
+          -t $DOCKER_TEST_IMAGE_TAG .
+      - name: Execute Pytest
+        run: |
+          set -o pipefail
+          docker run -v /tmp:/tmp $DOCKER_TEST_IMAGE_TAG pytest \
+            --cov-report=term-missing \
+            --junitxml=/tmp/pytest.xml \
+            --cov=gpt_search | tee /tmp/pytest-coverage.txt
+      - name: Pytest coverage comment
+        if: always()
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: /tmp/pytest-coverage.txt
+          junitxml-path: /tmp/pytest.xml
