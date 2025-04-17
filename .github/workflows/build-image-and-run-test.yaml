@@ -16,73 +16,87 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Consolidated version jobs using a matrix
-  get-versions:
-    name: Get Chart Versions
+  # You can't use a matrix directly with a reusable workflow call
+  # Each matrix item needs its own job
+  gpt-version:
+    name: Get GPT Chart Version
     uses: ./.github/workflows/get-chart-version-info.yaml
-    strategy:
-      matrix:
-        component:
-          - name: gpt-search
-            chart-path: "./charts/gpt-search/Chart.yaml"
-          - name: agent-flows
-            chart-path: "./charts/agent-flows/Chart.yaml"
     secrets: inherit
     with:
-      chart-path: ${{ matrix.component.chart-path }}
-      # Add a custom output identifier to differentiate outputs
-      output-prefix: ${{ matrix.component.name }}
+      chart-path: "./charts/gpt-search/Chart.yaml"
+  
+  agent-flows-version:
+    name: Get Agent Flows Chart Version
+    uses: ./.github/workflows/get-chart-version-info.yaml
+    secrets: inherit
+    with:
+      chart-path: "./charts/agent-flows/Chart.yaml"
 
   # python-linter:
-  #   uses: ./.github/workflows/python-linter.yaml@development
+  #   uses: occasio-technology-solutions/infra/.github/workflows/python-linter.yaml@development
   #   secrets:
-  #     repo_token: "${{ secrets.TOKEN }}"
+  #     repo_token: "${{ secrets.GHA_BOT_REPO_TOKEN }}"
 
-  # Consolidated build jobs using a matrix
-  build-images:
-    needs: 'get-versions'
-    name: Build ${{ matrix.component.name }} ${{ matrix.build-type }} Image
+  build-gpt-image:
+    needs: 'gpt-version'
     uses: ./.github/workflows/build-image.yaml
-    strategy:
-      matrix:
-        component:
-          - name: gpt-search
-            dockerfile: "./Dockerfile"
-            version-output: gpt-search-app-image-tag-version
-          - name: agent-flows
-            dockerfile: "./Dockerfile.agentflows"
-            version-output: agent-flows-app-image-tag-version
-        build-type:
-          - name: standard
-            target: ""
-          - name: migration
-            target: "migration"
     with:
       docker-arch: linux/arm64
-      dockerfile-path: ${{ matrix.component.dockerfile }}
-      custom-image-name: ${{ matrix.component.name }}
-      custom-image-tag: ${{ needs.get-versions.outputs[matrix.component.version-output] }}
-      build-target: ${{ matrix.build-type.target }}
+      custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
     secrets:
-      docker-build-secrets: "github_pat=${{ secrets.TOKEN }}"
+      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+  
+  build-agent-flows-image:
+    needs: 'agent-flows-version'
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      docker-arch: linux/arm64
+      dockerfile-path: "./Dockerfile.agentflows"
+      custom-image-name: agent-flows
+      custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
+    secrets:
+      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      
+  build-migrate-vector-image:
+    needs: 'gpt-version'
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      docker-arch: linux/arm64
+      build-target: "migration"
+      custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
+    secrets:
+      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      
+  build-migrate-agent-image:
+    needs: 'agent-flows-version'
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      docker-arch: linux/arm64
+      build-target: "migration"
+      dockerfile-path: "./Dockerfile.agentflows"
+      custom-image-name: agent-flows
+      custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
+    secrets:
+      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
 
-  # Keep the test job unchanged
   docker-tests:
     name: Run Tests using Docker Image
     runs-on: occasio-runner-fleet
-    needs: build-images
-    # This now needs to reference the correct matrix output for gpt-search standard build
+    needs: build-gpt-image
     timeout-minutes: 5
     env:
-      DOCKER_REPO: ${{ needs.build-images.outputs['matrix-gpt-search-standard-docker-repo'] }}
-      DOCKER_TAG: ${{ needs.build-images.outputs['matrix-gpt-search-standard-docker-tag'] }}
+      DOCKER_REPO: ${{ needs.build-gpt-image.outputs.docker-repo }}
+      DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
       DOCKER_TEST_IMAGE_TAG: gpt-search-test
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v2
         with:
-          registry: ghcr.io
+          registry: hub.docker.com
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Check out code
