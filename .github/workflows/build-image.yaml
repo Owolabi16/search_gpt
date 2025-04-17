@@ -93,6 +93,23 @@ jobs:
             type=raw,value=${{inputs.build-target}}
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre-build-script }}'
+      # - name: Git checkout, Build and push
+      #   id: build
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     push: true
+      #     build-args: ${{ inputs.docker-build-args }}
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     file: ${{ inputs.dockerfile-path }}
+      #     platforms: ${{ inputs.docker-arch }}
+      #     pull: true
+      #     no-cache: false
+      #     secrets: ${{ secrets.docker-build-secrets }}
+      #     cache-from: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}:buildcache
+      #     cache-to: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}:buildcache,mode=max
+      #     target: ${{ inputs.build-target }}
       - name: Git checkout, Build and push
         id: build
         uses: docker/build-push-action@v4
@@ -106,7 +123,8 @@ jobs:
           platforms: ${{ inputs.docker-arch }}
           pull: true
           no-cache: false
-          secrets: ${{ secrets.docker-build-secrets }}
+          # Remove or comment out the secrets line if you don't need build secrets
+          # secrets: ${{ secrets.docker-build-secrets }}
           cache-from: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}:buildcache
           cache-to: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}:buildcache,mode=max
           target: ${{ inputs.build-target }}
