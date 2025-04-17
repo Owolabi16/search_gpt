@@ -63,7 +63,7 @@ jobs:
       #     working-dir: ${{ inputs.chart_dir }}
       #     git-push: "true"
       - name: Install Dependencies
-        run: helm dep build ./charts/agent-flows/Chart.yaml --skip-refresh
+        run: helm dep build ./github/workflows/charts/agent-flows/Chart.yaml --skip-refresh
       - name: Helm Lint
         run: helm lint ${{ inputs.chart_dir }}
       - name: Generate template.yaml
