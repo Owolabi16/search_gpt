@@ -68,12 +68,12 @@ jobs:
           endpoint: builder
           driver-opts: |
             image=moby/buildkit:v0.10.6
-      # - name: Login to GHCR
-      #   uses: docker/login-action@v2
-      #   with:
-      #     registry: ghcr.io
-      #     username: Owolabi16
-      #     password: ${{ secrets.PAT_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: Owolabi16
+          password: ${{ secrets.PAT_TOKEN }}
       - name: Checkout
         uses: actions/checkout@v3
       - name: Docker meta
@@ -93,23 +93,6 @@ jobs:
             type=raw,value=${{inputs.build-target}}
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre-build-script }}'
-      # - name: Git checkout, Build and push
-      #   id: build
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .
-      #     push: true
-      #     build-args: ${{ inputs.docker-build-args }}
-      #     tags: ${{ steps.meta.outputs.tags }}
-      #     labels: ${{ steps.meta.outputs.labels }}
-      #     file: ${{ inputs.dockerfile-path }}
-      #     platforms: ${{ inputs.docker-arch }}
-      #     pull: true
-      #     no-cache: false
-      #     secrets: ${{ secrets.docker-build-secrets }}
-      #     cache-from: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}:buildcache
-      #     cache-to: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}:buildcache,mode=max
-      #     target: ${{ inputs.build-target }}
       - name: Git checkout, Build and push
         id: build
         uses: docker/build-push-action@v4
@@ -122,8 +105,25 @@ jobs:
           file: ${{ inputs.dockerfile-path }}
           platforms: ${{ inputs.docker-arch }}
           pull: true
-          no-cache: true  # Set to true to disable caching
+          no-cache: false
+          secrets: ${{ secrets.docker-build-secrets }}
+          cache-from: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}:buildcache
+          cache-to: type=registry,ref=${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, env.REPO_OWNER, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}:buildcache,mode=max
           target: ${{ inputs.build-target }}
+      # - name: Git checkout, Build and push
+      #   id: build
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     push: true
+      #     build-args: ${{ inputs.docker-build-args }}
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     file: ${{ inputs.dockerfile-path }}
+      #     platforms: ${{ inputs.docker-arch }}
+      #     pull: true
+      #     no-cache: true  # Set to true to disable caching
+      #     target: ${{ inputs.build-target }}
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
     runs-on: ubuntu-latest
