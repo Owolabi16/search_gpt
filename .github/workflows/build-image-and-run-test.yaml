@@ -31,7 +31,7 @@ jobs:
     uses: ./.github/workflows/get-chart-version-info.yaml
     secrets: inherit
     with:
-      chart_dir: "./charts/agent-flows/Chart.yaml"
+      chart_dir: ./.github/workflows/charts/agent-flows/Chart.yaml
       chart_overwrite: false
   # python-linter:
   #   uses: occasio-technology-solutions/infra/.github/workflows/python-linter.yaml@development
