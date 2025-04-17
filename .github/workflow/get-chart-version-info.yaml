@@ -1,0 +1,97 @@
+name: Build and Push Helm Chart
+on:
+  workflow_call:
+    inputs:
+      chart_dir:
+        required: true
+        type: string
+      chart_tag:
+        required: false
+        type: string
+      chart_overwrite:
+        required: true
+        type: boolean
+      is_lib_chart:
+        required: false
+        type: boolean
+        default: false
+      # chart_name Deprecated
+      chart_name:
+        required: false
+        type: string
+      pre_build_script:
+        required: false
+        type: string
+      git_branch:
+        required: false
+        type: string
+        default: ''
+jobs:
+  helm-chart-release:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: hub.docker.com/u/owolabialiu
+      CHART_TAG: ${{ inputs.chart_tag }}
+      HELM_TEMPLATE: template.yaml
+      DOCKER_HUB_USER: owolabialiu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.git_branch }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ env.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Helm Registry Login
+        run: >
+          echo ${{ github.token }} |
+          helm registry login $REGISTRY
+          --username occasio-machine
+          --password-stdin
+      - name: Run Pre-Build User-defined script
+        run: bash -c '${{ inputs.pre_build_script }}'
+      - name: Generate Docs
+        continue-on-error: true
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: occasio-technology-solutions/helm-docs-action@occasio-development
+        with:
+          working-dir: ${{ inputs.chart_dir }}
+          git-push: "true"
+      - name: Install Dependencies
+        run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
+      - name: Helm Lint
+        run: helm lint ${{ inputs.chart_dir }}
+      - name: Generate template.yaml
+        if: ${{ !inputs.is_lib_chart }}
+        run: helm template ${{ inputs.chart_dir }} > ${{ inputs.chart_dir }}/$HELM_TEMPLATE && cat ${{ inputs.chart_dir }}/$HELM_TEMPLATE
+      - name: KubeVal Kubernetes Objects
+        if: ${{ !inputs.is_lib_chart }}
+        run: >
+          docker run --rm -v $(pwd)/${{ inputs.chart_dir }}:/data
+          cytopia/kubeval
+          $HELM_TEMPLATE
+          --output=stdout
+          --strict
+          --ignore-missing-schemas
+      - run: rm -f $HELM_TEMPLATE
+        if: ${{ !inputs.is_lib_chart }}
+      - name: Get Chart Name from Chart.yaml
+        run: echo "CHART_NAME=$(yq eval .name ${{ inputs.chart_dir }}/Chart.yaml)" >> $GITHUB_ENV
+      - name: Get Chart Tag/version from Chart.yaml if not inputted
+        if: ${{ inputs.chart_tag == '' }}
+        run: echo "CHART_TAG=$(yq eval .version ${{ inputs.chart_dir }}/Chart.yaml)" >> $GITHUB_ENV
+      - name: Chart Registry Overwrite Protection
+        if: ${{ inputs.chart_overwrite == false }}
+        run: '! $(helm pull oci://$REGISTRY/chart/$CHART_NAME --version $CHART_TAG)'
+      - name: Release Helm Chart to GHCR
+        uses: appany/helm-oci-chart-releaser@v0.4.0
+        with:
+          name: $CHART_NAME
+          repository: "chart"
+          tag: $CHART_TAG
+          path: ${{ inputs.chart_dir }}
+          registry: ${{ env.REGISTRY }}
+          registry_username: occasio-machine
+          registry_password: ${{ github.token }}
