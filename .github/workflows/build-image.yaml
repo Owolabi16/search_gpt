@@ -26,6 +26,8 @@ on:
         required: false
       DOCKER_HUB_TOKEN:
         required: true
+      PAT_TOKEN:
+        required:true  
     outputs:
       docker-tag:
         description: Docker Tag Value
@@ -66,20 +68,16 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}   
       
       - name: Checkout
         uses: actions/checkout@v3
-      
-      - name: Setup Buildx Cache Directory
-        run: mkdir -p /tmp/.buildx-cache
-      
-      - name: Set up Buildx Cache
-        uses: actions/cache@v3
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
       
       - name: Docker meta
         id: meta
@@ -96,11 +94,7 @@ jobs:
             type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
             type=sha
             type=raw,value=${{inputs.build-target}}
-      
-      - name: Run Pre-Build User-defined script
-        if: ${{ inputs.pre-build-script != '' }}
-        run: bash -c '${{ inputs.pre-build-script }}'
-      
+           
       - name: Build and push
         id: build
         uses: docker/build-push-action@v4
@@ -114,16 +108,11 @@ jobs:
           platforms: ${{ inputs.docker-arch }}
           pull: true
           no-cache: false
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          # Use GHCR for cache with lowercase repository owner
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
-      
-      - name: Move cache
-        if: always()
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
-  
+        
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
     runs-on: ubuntu-latest
