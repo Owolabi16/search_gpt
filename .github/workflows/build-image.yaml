@@ -113,8 +113,8 @@ jobs:
           pull: true
           no-cache: false
           # Use GHCR for cache
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/cache:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/cache:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
