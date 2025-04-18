@@ -1,4 +1,4 @@
-name: Build Image and Push to GHCR.
+name: Build Image and Push to GHCR..
 on:
   workflow_call:
     inputs:
