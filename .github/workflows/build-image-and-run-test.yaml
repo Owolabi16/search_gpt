@@ -131,7 +131,7 @@ jobs:
       - name: Execute Pytest
         run: |
           set -o pipefail
-          docker run -v /tmp:/tmp PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
+          docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
             --cov-report=term-missing \
             --junitxml=/tmp/pytest.xml \
             --cov=gpt_search | tee /tmp/pytest-coverage.txt
