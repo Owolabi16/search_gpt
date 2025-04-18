@@ -1,4 +1,4 @@
-name: Build and Push Helm Chart
+name: Build and Push Helm Chart.
 on:
   workflow_call:
     inputs:
