@@ -72,7 +72,7 @@ jobs:
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
       DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
-      # PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
       
   build-migrate-agent-image:
     needs: 'agent-flows-version'
