@@ -64,10 +64,10 @@ on:
     outputs:
       docker-tag:
         description: Docker Tag Value
-        value: ${{ jobs.build-image.outputs.docker-tag }}
+        value: ${{ needs.jobs.build-image.outputs.docker-tag }}
       docker-repo:
         description: Docker Registry and Repo without Tag
-        value: ${{ jobs.build-image.outputs.docker-repo }}
+        value: ${{ needs.jobs.build-image.outputs.docker-repo }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
