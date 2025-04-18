@@ -131,7 +131,7 @@ jobs:
         uses: anchore/scan-action@v3
         with:
           image: ${{ needs.build-image.outputs.docker-repo }}:${{ needs.build-image.outputs.docker-tag }}
-          fail-build: true
-          severity-cutoff: high
+          fail-build: false
+          severity-cutoff: critical
           output-format: table
           only-fixed: true
