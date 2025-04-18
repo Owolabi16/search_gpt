@@ -109,7 +109,15 @@ jobs:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-        
+            ${{ runner.os }}-buildx-   
+      - name: Debug Output Tags
+        run: |
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}"            
+      - name: Test Docker Build & Push
+        run: |
+          docker build -t registry.hub.docker.com/owolabialiu/test:latest .
+          docker push registry.hub.docker.com/owolabialiu/test:latest                 
       # - name: Git checkout, Build and push
       #   id: build
       #   uses: docker/build-push-action@v4
