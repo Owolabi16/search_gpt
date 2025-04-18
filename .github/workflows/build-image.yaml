@@ -24,7 +24,7 @@ on:
     secrets:
       docker-build-secrets:
         required: false
-      DOCKER_HUB_TOKEN:
+      DOCKER_HUB_TOKEN2:
         required: true
       PAT_TOKEN:
         required: true  
