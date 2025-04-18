@@ -27,7 +27,7 @@ on:
       DOCKER_HUB_TOKEN:
         required: false
       PAT_TOKEN:
-      required: true  
+        required: true  
     outputs:
       docker-tag:
         description: Docker Tag Value
