@@ -50,6 +50,8 @@ jobs:
       REGISTRY: ghcr.io
       DOCKER_HUB_USER: owolabialiu
       HELM_TEMPLATE: template.yaml
+      CHART_DIR: './.github/workflows/charts/gpt-search'
+      CHART_OVERWRITE: 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -77,19 +79,21 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
         uses: docker://jnorwood/helm-docs:v1.11.0
         with:
+          chart_dir: ${{ env.CHART_DIR }}
+          chart_overwrite: ${{ env.CHART_OVERWRITE }}
           entrypoint: helm-docs
-          args: -g $(basename ${{ inputs.gpt_chart_dir }})
+          args: -g $(basename ${{ env.CHART_DIR }})
       - name: Install Dependencies
-        run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
+        run: helm dep build ${{ env.CHART_DIR }} --skip-refresh
       - name: Helm Lint
-        run: helm lint ${{ inputs.chart_dir }}
+        run: helm lint ${{ env.CHART_DIR }}
       - name: Generate template.yaml
         if: ${{ !inputs.is_lib_chart }}
-        run: helm template ${{ inputs.chart_dir }} > ${{ inputs.chart_dir }}/$HELM_TEMPLATE && cat ${{ inputs.chart_dir }}/$HELM_TEMPLATE
+        run: helm template ${{ env.CHART_DIR }} > ${{ env.CHART_DIR }}/$HELM_TEMPLATE && cat ${{ env.CHART_DIR }}/$HELM_TEMPLATE
       - name: KubeVal Kubernetes Objects
         if: ${{ !inputs.is_lib_chart }}
         run: >
-          docker run --rm -v $(pwd)/${{ inputs.chart_dir }}:/data
+          docker run --rm -v $(pwd)/${{ env.CHART_DIR }}:/data
           cytopia/kubeval
           $HELM_TEMPLATE
           --output=stdout
@@ -98,10 +102,10 @@ jobs:
       - run: rm -f $HELM_TEMPLATE
         if: ${{ !inputs.is_lib_chart }}
       - name: Get Chart Name from Chart.yaml
-        run: echo "CHART_NAME=$(yq eval .name ${{ inputs.chart_dir }}/Chart.yaml)" >> $GITHUB_ENV
+        run: echo "CHART_NAME=$(yq eval .name ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
       - name: Get Chart Tag/version from Chart.yaml if not inputted
         if: ${{ inputs.chart_tag == '' }}
-        run: echo "CHART_TAG=$(yq eval .version ${{ inputs.chart_dir }}/Chart.yaml)" >> $GITHUB_ENV
+        run: echo "CHART_TAG=$(yq eval .version ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
       - name: Chart Registry Overwrite Protection
         if: ${{ inputs.chart_overwrite == false }}
         run: '! $(helm pull oci://$REGISTRY/chart/$CHART_NAME --version $CHART_TAG)'
@@ -111,7 +115,7 @@ jobs:
           name: ${{ env.CHART_NAME }}
           repository: owolabi16/charts
           tag: ${{ env.CHART_TAG }}
-          path: ${{ inputs.chart_dir }}
+          path: ${{ env.CHART_DIR }}
           registry: ghcr.io
           registry_username: Owolabi16
           registry_password: ${{ secrets.PAT_TOKEN }}
