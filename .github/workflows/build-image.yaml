@@ -52,11 +52,11 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       
       - name: Set Docker Repository Variable
-        run: echo "DOCKER_REPOSITORY=owolabialiu/${{ github.event.repository.name }}" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       
       - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=owolabialiu/${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
       
       - name: Set Repository Owner
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
