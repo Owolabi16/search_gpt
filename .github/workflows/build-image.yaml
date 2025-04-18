@@ -1,4 +1,4 @@
-name: Build Image and Push to GHCR.
+name: Build Image and Push to Docker Hub
 on:
   workflow_call:
     inputs:
@@ -25,9 +25,7 @@ on:
       docker-build-secrets:
         required: false
       DOCKER_HUB_TOKEN:
-        required: false
-      PAT_TOKEN:
-        required: true  
+        required: true
     outputs:
       docker-tag:
         description: Docker Tag Value
@@ -37,7 +35,6 @@ on:
         value: ${{ jobs.build-image.outputs.docker-repo }}
 
 env:
-  REGISTRY: registry.hub.docker.com
   DOCKER_HUB_USER: owolabialiu
 
 jobs:
@@ -53,90 +50,58 @@ jobs:
         with:
           username: owolabialiu
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      - name: Github Repo Var to lower
-        run: echo "DOCKER_REPOSITORY=registry.hub.docker.com/owolabialiu/${{ github.repository_name }}" >> $GITHUB_ENV
-      - name: Github Repo Var Output
+      
+      - name: Set Docker Repository Variable
+        run: echo "DOCKER_REPOSITORY=owolabialiu/${{ github.event.repository.name }}" >> $GITHUB_ENV
+      
+      - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=registry.hub.docker.com/owolabialiu/${{ github.repository_name }}" >> $GITHUB_ENV
-      - name: Github Repo Owner to Lower
-        run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=owolabialiu/${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+      
+      - name: Set Repository Owner
+        run: echo "REPO_OWNER=${{ github.repository_owner | downcase }}" >> $GITHUB_ENV
+      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Context for Buildx
-        run: docker context create builder
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-        with:
-          endpoint: builder
-          driver-opts: |
-            image=moby/buildkit:v0.10.6
-      - name: Test PAT Token
-        run: |
-          echo "Testing PAT token permissions..."
-          echo ${{ secrets.PAT_TOKEN }} | cut -c1-4 # Show first 4 chars only for safety
-          curl -I -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" https://api.github.com/user            
-      - name: Login to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.PAT_TOKEN }}
+      
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: |
-            # ${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, github.repository_owner, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}
-            registry.hub.docker.com/owolabialiu/search_gpt
-          tags: |
-            type=schedule
-            type=ref,event=branch
-            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format( '-{0}', inputs.build-target) || ''}}
-            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format( '-{0}', inputs.build-target) || ''}}
-            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format( '-{0}', inputs.build-target) || ''}}
-            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format( '-{0}', inputs.build-target) || ''}}
-            type=sha
-            type=raw,value=${{inputs.build-target}}
-      - name: Run Pre-Build User-defined script
-        run: bash -c '${{ inputs.pre-build-script }}'
+      
       - name: Setup Buildx Cache Directory
-        run: |
-          mkdir -p /tmp/.buildx-cache        
-      - name: Set up Docker Buildx cache
+        run: mkdir -p /tmp/.buildx-cache
+      
+      - name: Set up Buildx Cache
         uses: actions/cache@v3
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-buildx-   
-      - name: Debug Output Tags
-        run: |
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}"            
-      - name: Test Docker Build & Push
-        run: |
-          docker build -t owolabialiu/test:latest .
-          docker push owolabialiu/test:latest                 
-      # - name: Git checkout, Build and push
-      #   id: build
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .
-      #     push: true
-      #     build-args: ${{ inputs.docker-build-args }}
-      #     tags: ${{ steps.meta.outputs.tags }}
-      #     labels: ${{ steps.meta.outputs.labels }}
-      #     file: ${{ inputs.dockerfile-path }}
-      #     platforms: ${{ inputs.docker-arch }}
-      #     pull: true
-      #     no-cache: false
-      #     # Use GHCR for cache
-      #     cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
-      #     cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
-      #     target: ${{ inputs.build-target }}
-      - name: Git checkout, Build and push
+            ${{ runner.os }}-buildx-
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.custom-image-name != '' && format('{0}/{1}', env.DOCKER_HUB_USER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=sha
+            type=raw,value=${{inputs.build-target}}
+      
+      - name: Run Pre-Build User-defined script
+        if: ${{ inputs.pre-build-script != '' }}
+        run: bash -c '${{ inputs.pre-build-script }}'
+      
+      - name: Build and push
         id: build
         uses: docker/build-push-action@v4
         with:
@@ -147,17 +112,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           file: ${{ inputs.dockerfile-path }}
           platforms: ${{ inputs.docker-arch }}
-          # pull: true
-          # no-cache: false
-          # # Use local cache instead of GHCR
-          # cache-from: type=local,src=/tmp/.buildx-cache
-          # cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          # target: ${{ inputs.build-target }}   
+          pull: true
+          no-cache: false
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          target: ${{ inputs.build-target }}
+      
       - name: Move cache
         if: always()
         run: |
           rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true            
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
+  
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
     runs-on: ubuntu-latest
@@ -168,14 +134,10 @@ jobs:
         with:
           username: owolabialiu
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      - name: Login to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.PAT_TOKEN }}
+      
       - name: Checkout Repo for .grype.yaml
         uses: actions/checkout@v3
+      
       - name: Security Scan
         uses: anchore/scan-action@v3
         with:
