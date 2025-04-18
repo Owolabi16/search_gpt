@@ -100,6 +100,30 @@ jobs:
             type=raw,value=${{inputs.build-target}}
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre-build-script }}'
+      - name: Set up Docker Buildx cache
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-        
+      # - name: Git checkout, Build and push
+      #   id: build
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     push: true
+      #     build-args: ${{ inputs.docker-build-args }}
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     file: ${{ inputs.dockerfile-path }}
+      #     platforms: ${{ inputs.docker-arch }}
+      #     pull: true
+      #     no-cache: false
+      #     # Use GHCR for cache
+      #     cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+      #     cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+      #     target: ${{ inputs.build-target }}
       - name: Git checkout, Build and push
         id: build
         uses: docker/build-push-action@v4
@@ -113,10 +137,15 @@ jobs:
           platforms: ${{ inputs.docker-arch }}
           pull: true
           no-cache: false
-          # Use GHCR for cache
-          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
-          target: ${{ inputs.build-target }}
+          # Use local cache instead of GHCR
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          target: ${{ inputs.build-target }}   
+      - name: Move cache
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true            
   scan-image:
     name: Scan Docker Image for Critical Vulnerabilities
     runs-on: ubuntu-latest
