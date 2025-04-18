@@ -132,6 +132,6 @@ jobs:
         with:
           image: ${{ needs.build-image.outputs.docker-repo }}:${{ needs.build-image.outputs.docker-tag }}
           fail-build: true
-          severity-cutoff: critical
+          severity-cutoff: high
           output-format: table
           only-fixed: true
