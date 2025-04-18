@@ -46,8 +46,8 @@ jobs:
       # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      #DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
   
   build-agent-flows-image:
@@ -60,8 +60,8 @@ jobs:
       # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      #DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
       
   build-migrate-vector-image:
@@ -73,8 +73,8 @@ jobs:
       # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      #DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
       
   build-migrate-agent-image:
@@ -88,8 +88,8 @@ jobs:
       # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
     secrets:
       docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      #DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
+      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
+      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
       PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
 
   docker-tests:
