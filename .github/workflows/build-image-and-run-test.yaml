@@ -123,11 +123,15 @@ jobs:
           --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
           -f Dockerfile
           -t $DOCKER_TEST_IMAGE_TAG .
+
+      - name: Debug Docker Container
+        run: |
+          docker run $DOCKER_TEST_IMAGE_TAG find / -name "test_core.py" 2>/dev/null          
       
       - name: Execute Pytest
         run: |
           set -o pipefail
-          docker run -v /tmp:/tmp $DOCKER_TEST_IMAGE_TAG pytest gpt_search/test/ \
+          docker run -v /tmp:/tmp $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
             --cov-report=term-missing \
             --junitxml=/tmp/pytest.xml \
             --cov=gpt_search | tee /tmp/pytest-coverage.txt
