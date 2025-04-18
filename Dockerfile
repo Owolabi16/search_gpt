@@ -1,5 +1,5 @@
 # Builder stage
-FROM ghcr.io/docker-library/python:3.10-slim
+FROM ghcr.io/docker-library/python:3.10-slim AS builder
 
 WORKDIR /app
 

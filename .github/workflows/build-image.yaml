@@ -115,10 +115,10 @@ jobs:
           pull: true
           no-cache: false
           # Use GHCR for cache with lowercase repository owner
-          # cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
-          # cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
-          cache-from: type=registry,ref=docker.io/${{ env.DOCKER_HUB_USER }}/cache:buildcache
-          cache-to: type=registry,ref=docker.io/${{ env.DOCKER_HUB_USER }}/cache:buildcache,mode=max
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+          # cache-from: type=registry,ref=docker.io/${{ env.DOCKER_HUB_USER }}/cache:buildcache
+          # cache-to: type=registry,ref=docker.io/${{ env.DOCKER_HUB_USER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
         
   scan-image:
