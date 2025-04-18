@@ -100,6 +100,9 @@ jobs:
             type=raw,value=${{inputs.build-target}}
       - name: Run Pre-Build User-defined script
         run: bash -c '${{ inputs.pre-build-script }}'
+      - name: Setup Buildx Cache Directory
+        run: |
+          mkdir -p /tmp/.buildx-cache        
       - name: Set up Docker Buildx cache
         uses: actions/cache@v3
         with:
@@ -135,12 +138,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           file: ${{ inputs.dockerfile-path }}
           platforms: ${{ inputs.docker-arch }}
-          pull: true
-          no-cache: false
-          # Use local cache instead of GHCR
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          target: ${{ inputs.build-target }}   
+          # pull: true
+          # no-cache: false
+          # # Use local cache instead of GHCR
+          # cache-from: type=local,src=/tmp/.buildx-cache
+          # cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          # target: ${{ inputs.build-target }}   
       - name: Move cache
         if: always()
         run: |
