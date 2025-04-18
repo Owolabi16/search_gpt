@@ -117,8 +117,8 @@ jobs:
           echo "DOCKER_REPOSITORY: ${{ env.DOCKER_REPOSITORY }}"            
       - name: Test Docker Build & Push
         run: |
-          docker build -t hub.docker.com/owolabialiu/test:latest .
-          docker push hub.docker.com/owolabialiu/test:latest                 
+          docker build -t owolabialiu/test:latest .
+          docker push owolabialiu/test:latest                 
       # - name: Git checkout, Build and push
       #   id: build
       #   uses: docker/build-push-action@v4
