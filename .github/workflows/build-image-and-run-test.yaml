@@ -78,7 +78,7 @@ jobs:
         uses: docker://jnorwood/helm-docs:v1.11.0
         with:
           entrypoint: helm-docs
-          args: --chart-dir ${{ inputs.chart_dir }}
+          args: -g ${{ inputs.chart_dir }}
       - name: Install Dependencies
         run: helm dep build ${{ inputs.chart_dir }} --skip-refresh
       - name: Helm Lint
