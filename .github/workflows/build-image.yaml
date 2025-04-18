@@ -54,10 +54,10 @@ jobs:
           username: owolabialiu
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Github Repo Var to lower
-        run: echo "DOCKER_REPOSITORY=$( echo ${{ env.REGISTRY }}/${{ github.repository }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=registry.hub.docker.com/owolabialiu/${{ github.repository_name }}" >> $GITHUB_ENV
       - name: Github Repo Var Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=$( echo ${{ env.REGISTRY }}/${{ github.repository }} | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+        run: echo "DOCKER_REPOSITORY=registry.hub.docker.com/owolabialiu/${{ github.repository_name }}" >> $GITHUB_ENV
       - name: Github Repo Owner to Lower
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       - name: Set up QEMU
@@ -88,7 +88,8 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, github.repository_owner, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}
+            # ${{ inputs.custom-image-name != '' && format('{0}/{1}/{2}', env.REGISTRY, github.repository_owner, inputs.custom-image-name)  || env.DOCKER_REPOSITORY }}
+            registry.hub.docker.com/owolabialiu/search_gpt
           tags: |
             type=schedule
             type=ref,event=branch
