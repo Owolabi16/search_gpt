@@ -1,10 +1,10 @@
 # Builder stage
 FROM python:3.10-slim AS builder
 
-
 WORKDIR /app
 
 # Copy only requirements file to leverage Docker cache
+
 COPY . .
 
 # Install dependencies
@@ -19,14 +19,14 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
-
 # Install only runtime dependencies
 COPY --from=builder /app/wheels /wheels
+
 RUN pip install --no-cache-dir --no-index --find-links=/wheels/ /wheels/* \
     && rm -rf /wheels
 
-# Copy only the application code
-COPY app.py .
+# Copy the entire application code
+COPY . .
 
 # Expose port
 EXPOSE 8000
