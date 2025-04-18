@@ -5,7 +5,7 @@ FROM python:3.10-slim AS builder
 WORKDIR /app
 
 # Copy only requirements file to leverage Docker cache
-COPY requirements.txt .
+COPY . .
 
 # Install dependencies
 RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
