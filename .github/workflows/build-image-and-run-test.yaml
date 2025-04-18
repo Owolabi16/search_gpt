@@ -132,7 +132,8 @@ jobs:
         run: |
           set -o pipefail
           docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
-            --cov-report=term-missing \
+            --cov-report=xml:/tmp/coverage.xml \
+            --cov-report=term \
             --junitxml=/tmp/pytest.xml \
             --cov=gpt_search | tee /tmp/pytest-coverage.txt
       
@@ -140,5 +141,7 @@ jobs:
         if: always()
         uses: MishaKav/pytest-coverage-comment@main
         with:
-          pytest-coverage-path: /tmp/pytest-coverage.txt
+          pytest-coverage-path: /tmp/coverage.xml
           junitxml-path: /tmp/pytest.xml
+          title: Coverage Report
+          badge-title: Coverage
