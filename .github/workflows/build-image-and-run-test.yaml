@@ -1,15 +1,6 @@
 name: Build and Run Tests
 on:
-  workflow_dispatch:
-  push:
-    tags:
-      - "v*.*.*"
-    branches:
-      - main
-  pull_request:
-    types:
-      - opened
-      - synchronize
+  workflow_call:
     inputs:
       chart_dir:
         required: true
@@ -64,10 +55,20 @@ on:
     outputs:
       docker-tag:
         description: Docker Tag Value
-        value: ${{ needs.build-image.outputs.docker-tag }}
+        value: ${{ jobs.build-image.outputs.docker-tag }}
       docker-repo:
         description: Docker Registry and Repo without Tag
-        value: ${{ needs.build-image.outputs.docker-repo }}
+        value: ${{ jobs.build-image.outputs.docker-repo }}
+  workflow_dispatch:
+    push:
+      tags:
+        - "v*.*.*"
+      branches:
+        - main
+    pull_request:
+      types:
+        - opened
+        - synchronize      
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
