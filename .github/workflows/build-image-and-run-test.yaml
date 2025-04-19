@@ -880,19 +880,18 @@ jobs:
             junitxml-path: /tmp/pytest.xml
             title: Coverage Report
             badge-title: Coverage
-            
-        - name: Release to environment
+
+        - name: Determine environment
+          id: set-env
           run: |
             if [ "${{ github.ref }}" == "refs/heads/development" ] || [ "${{ inputs.git_branch }}" == "development" ]; then
-              environment="staging"
               echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-              echo "Releasing charts with tag: $CHART_TAG to environment: staging"
-              # Add your staging deployment commands here
+              echo "environment=staging" >> $GITHUB_OUTPUT
             else
-              environment="rc-next"
               echo "ENVIRONMENT=rc-next" >> $GITHUB_ENV
-              echo "Releasing charts with tag: $CHART_TAG to environment: rc-next"
-              # Add your rc-next deployment commands here
+              echo "environment=rc-next" >> $GITHUB_OUTPUT
             fi
-            
-            echo "::notice title=Deployment Target::Releasing to $environment environment"
+
+        - name: Releasing to ${{ steps.set-env.outputs.environment }} environment
+          run: |
+            echo "Releasing charts with tag: $CHART_TAG to environment: $ENVIRONMENT"
