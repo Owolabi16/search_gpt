@@ -109,7 +109,6 @@ jobs:
 
       - name: Generate Docs
         continue-on-error: true
-        if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
         uses: docker://jnorwood/helm-docs:v1.11.0
         with:
           chart_dir: ${{ env.CHART_DIR }}
@@ -236,58 +235,308 @@ jobs:
           HELM_EXPERIMENTAL_OCI: 1          
 
   build-gpt-image:
-    needs: 'get-gpt-chart-version'
-    uses: ./.github/workflows/build-image.yaml
-    with:
-      docker-arch: linux/arm64
-      # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
-    secrets:
-      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+    runs-on: ubuntu-latest
+    outputs:
+      docker-tag: ${{ steps.meta.outputs.version }}
+      docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: owolabialiu
+          # username: aliuowolabi
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
+      
+      - name: Set Docker Repository Variable
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set Docker Repository Output
+        id: docker-repo
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+
+      
+      - name: Set Repository Owner
+        run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}   
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.custom-image-name != '' && format('{0}/{1}', env.DOCKER_HUB_USER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=sha
+            type=raw,value=${{inputs.build-target}}
+           
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          build-args: ${{ inputs.docker-build-args }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ inputs.dockerfile-path }}
+          platforms: ${{ inputs.docker-arch }}
+          pull: true
+          no-cache: false
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+          target: ${{ inputs.build-target }}
   
   build-agent-flows-image:
-    needs: 'get-agent-flows-chart-version'
-    uses: ./.github/workflows/build-image.yaml
-    with:
-      docker-arch: linux/arm64
-      # dockerfile-path: "./Dockerfile.agentflows"
-      # custom-image-name: agent-flows
-      # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
-    secrets:
-      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+    runs-on: ubuntu-latest
+    outputs:
+      docker-tag: ${{ steps.meta.outputs.version }}
+      docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: owolabialiu
+          # username: aliuowolabi
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
+      
+      - name: Set Docker Repository Variable
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set Docker Repository Output
+        id: docker-repo
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+
+      
+      - name: Set Repository Owner
+        run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}   
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.custom-image-name != '' && format('{0}/{1}', env.DOCKER_HUB_USER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=sha
+            type=raw,value=${{inputs.build-target}}
+           
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          build-args: ${{ inputs.docker-build-args }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ inputs.dockerfile-path }}
+          platforms: ${{ inputs.docker-arch }}
+          pull: true
+          no-cache: false
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+          target: ${{ inputs.build-target }}
       
   build-migrate-vector-image:
-    needs: 'get-gpt-chart-version'
-    uses: ./.github/workflows/build-image.yaml
-    with:
-      docker-arch: linux/arm64
-      # build-target: "migration"
-      # custom-image-tag: ${{ needs.gpt-version.outputs.app-image-tag-version }}
-    secrets:
-      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
+    runs-on: ubuntu-latest
+    outputs:
+      docker-tag: ${{ steps.meta.outputs.version }}
+      docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: owolabialiu
+          # username: aliuowolabi
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
+      
+      - name: Set Docker Repository Variable
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set Docker Repository Output
+        id: docker-repo
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+
+      
+      - name: Set Repository Owner
+        run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}   
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.custom-image-name != '' && format('{0}/{1}', env.DOCKER_HUB_USER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=sha
+            type=raw,value=${{inputs.build-target}}
+           
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          build-args: ${{ inputs.docker-build-args }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ inputs.dockerfile-path }}
+          platforms: ${{ inputs.docker-arch }}
+          pull: true
+          no-cache: false
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+          target: ${{ inputs.build-target }}   
       
   build-migrate-agent-image:
-    needs: 'get-agent-flows-chart-version'
-    uses: ./.github/workflows/build-image.yaml
-    with:
-      docker-arch: linux/arm64
-      # build-target: "migration"
-      # dockerfile-path: "./Dockerfile.agentflows"
-      # custom-image-name: agent-flows
-      # custom-image-tag: ${{ needs.agent-flows-version.outputs.app-image-tag-version }}
-    secrets:
-      docker-build-secrets: "github_pat=${{ secrets.GHA_BOT_REPO_TOKEN }}"
-      # DOCKER_HUB_TOKEN2: "${{ secrets.DOCKER_HUB_TOKEN2 }}"
-      DOCKER_HUB_TOKEN: "${{ secrets.DOCKER_HUB_TOKEN }}"
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}      
+    runs-on: ubuntu-latest
+    outputs:
+      docker-tag: ${{ steps.meta.outputs.version }}
+      docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: owolabialiu
+          # username: aliuowolabi
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
+      
+      - name: Set Docker Repository Variable
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set Docker Repository Output
+        id: docker-repo
+        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
+
+      
+      - name: Set Repository Owner
+        run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT_TOKEN }}   
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            ${{ inputs.custom-image-name != '' && format('{0}/{1}', env.DOCKER_HUB_USER, inputs.custom-image-name) || env.DOCKER_REPOSITORY }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr,suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{version}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=semver,pattern={{major}},suffix=${{ inputs.build-target != '' && format('-{0}', inputs.build-target) || ''}}
+            type=sha
+            type=raw,value=${{inputs.build-target}}
+           
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          build-args: ${{ inputs.docker-build-args }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: ${{ inputs.dockerfile-path }}
+          platforms: ${{ inputs.docker-arch }}
+          pull: true
+          no-cache: false
+          cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
+          target: ${{ inputs.build-target }} 
 
   docker-tests:
     name: Run Tests using Docker Image
