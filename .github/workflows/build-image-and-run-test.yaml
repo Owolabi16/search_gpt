@@ -592,11 +592,7 @@ jobs:
           docker build
           --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
           -f Dockerfile
-          -t $DOCKER_TEST_IMAGE_TAG .
-
-      - name: Debug Docker Container
-        run: |
-          docker run $DOCKER_TEST_IMAGE_TAG find / -name "test_core.py" 2>/dev/null          
+          -t $DOCKER_TEST_IMAGE_TAG .      
       
       - name: Execute Pytest
         run: |
