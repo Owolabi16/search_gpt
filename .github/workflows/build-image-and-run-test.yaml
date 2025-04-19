@@ -565,8 +565,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       
-      - name: Pull Docker image
-        run: docker pull --platform linux/arm64 $DOCKER_REPO:$DOCKER_TAG
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
       
       - name: Build Test Image
         run: >
@@ -596,3 +601,23 @@ jobs:
           junitxml-path: /tmp/pytest.xml
           title: Coverage Report
           badge-title: Coverage
+
+  release-to-rc-next:
+    runs-on: ubuntu-latest
+    needs: [build-gpt-image, build-agent-flows-image]
+    with:
+      gpt_chart_tag: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
+      agent_flow_chart_tag: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
+      gpt_chart_overwrite: true
+      agent_flow_chart_overwrite: true
+    secrets: inherit       
+
+  release-to-staging:
+    runs-on: ubuntu-latest
+    needs: [build-gpt-image, build-agent-flows-image]
+    with:
+      gpt_chart_tag: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
+      agent_flow_chart_tag: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
+      gpt_chart_overwrite: ${{ inputs.chart_overwrite == true }}
+      agent_flow_chart_overwrite: ${{ inputs.chart_overwrite == true }}
+    secrets: inherit       
