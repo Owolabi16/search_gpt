@@ -567,10 +567,7 @@ jobs:
         with:
           install: true
           use: true
-          driver-opts: image=moby/buildkit:latest    
-      
-      - name: Check out code
-        uses: actions/checkout@v3
+          driver-opts: image=moby/buildkit:latest
       
       - name: Build and push
         uses: docker/build-push-action@v2
