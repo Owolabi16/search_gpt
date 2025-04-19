@@ -4,14 +4,13 @@ FROM python:3.10-slim AS builder
 WORKDIR /app
 
 # Copy only requirements file to leverage Docker cache
-
 COPY . .
 
 # Install dependencies
 RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
 
 # Final stage
-FROM python:3.10-slim
+FROM python:3.10-slim AS app
 
 # Set working directory
 WORKDIR /app
@@ -33,3 +32,12 @@ EXPOSE 8000
 
 # Run the application
 CMD ["python", "app.py"]
+
+# Migration stage - uses the main app as base
+FROM app AS migration
+
+# Set working directory (already done in base)
+WORKDIR /app
+
+# Run the migration command instead of the app
+CMD ["python", "migrations.py"]

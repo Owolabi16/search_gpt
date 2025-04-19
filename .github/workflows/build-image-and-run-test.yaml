@@ -390,7 +390,7 @@ jobs:
       
   build-migrate-vector-image:
     runs-on: ubuntu-latest
-    needs: 'get-gpt-chart-version'
+    needs: 'build-gpt-image'
     outputs:
       docker-tag: ${{ steps.meta.outputs.version }}
       docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
@@ -467,7 +467,7 @@ jobs:
       
   build-migrate-agent-image:
     runs-on: ubuntu-latest
-    needs: 'get-agent-flows-chart-version'
+    needs: 'build-agent-flows-image'
     outputs:
       docker-tag: ${{ steps.meta.outputs.version }}
       docker-repo: ${{ steps.docker-repo.outputs.DOCKER_REPOSITORY }}
