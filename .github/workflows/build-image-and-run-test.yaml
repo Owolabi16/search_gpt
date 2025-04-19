@@ -15,10 +15,10 @@ on:
         required: false
         type: boolean
         default: false
-      # chart_name Deprecated
       chart_name:
         required: false
         type: string
+        description: Deprecated
       pre_build_script:
         required: false
         type: string
@@ -55,36 +55,39 @@ on:
     outputs:
       docker-tag:
         description: Docker Tag Value
-        value: ${{ jobs.build-image.outputs.docker-tag }}
+        value: ${{ jobs.build-gpt-image.outputs.docker-tag }}
       docker-repo:
         description: Docker Registry and Repo without Tag
-        value: ${{ jobs.build-image.outputs.docker-repo }}
+        value: ${{ jobs.build-gpt-image.outputs.docker-repo }}
   workflow_dispatch:
-    push:
-      tags:
-        - "v*.*.*"
-      branches:
-        - main
-    pull_request:
-      types:
-        - opened
-        - synchronize      
+  push:
+    tags:
+      - "v*.*.*"
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize      
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  REGISTRY: ghcr.io
+  DOCKER_HUB_USER: owolabialiu
+  HELM_TEMPLATE: template.yaml
+  GPT_CHART_DIR: './.github/workflows/charts/gpt-search'
+  AGENT_CHART_DIR: './.github/workflows/charts/agent-flows'
+  CHART_OVERWRITE: 'false'
+
 jobs:
+  # Get GPT chart version
   get-gpt-chart-version:
     runs-on: ubuntu-latest
     outputs:
       chart-version: ${{ steps.extract-version.outputs.chart-version }}
-    env:
-      REGISTRY: ghcr.io
-      DOCKER_HUB_USER: owolabialiu
-      HELM_TEMPLATE: template.yaml
-      CHART_DIR: './.github/workflows/charts/gpt-search'
-      CHART_OVERWRITE: 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -105,65 +108,77 @@ jobs:
           password: ${{ secrets.PAT_TOKEN }}
 
       - name: Run Pre-Build User-defined script
+        if: inputs.pre_build_script != ''
         run: bash -c '${{ inputs.pre_build_script }}'
 
       - name: Generate Docs
         continue-on-error: true
         uses: docker://jnorwood/helm-docs:v1.11.0
         with:
-          chart_dir: ${{ env.CHART_DIR }}
+          chart_dir: ${{ env.GPT_CHART_DIR }}
           chart_overwrite: ${{ env.CHART_OVERWRITE }}
           entrypoint: helm-docs
-          args: -g $(basename ${{ env.CHART_DIR }})
+          args: -g $(basename ${{ env.GPT_CHART_DIR }})
+      
       - name: Install Dependencies
-        run: helm dep build ${{ env.CHART_DIR }} --skip-refresh
+        run: helm dep build ${{ env.GPT_CHART_DIR }} --skip-refresh
+      
       - name: Helm Lint
-        run: helm lint ${{ env.CHART_DIR }}
+        run: helm lint ${{ env.GPT_CHART_DIR }}
+      
       - name: Generate template.yaml
         if: ${{ !inputs.is_lib_chart }}
-        run: helm template ${{ env.CHART_DIR }} > ${{ env.CHART_DIR }}/$HELM_TEMPLATE && cat ${{ env.CHART_DIR }}/$HELM_TEMPLATE
+        run: helm template ${{ env.GPT_CHART_DIR }} > ${{ env.GPT_CHART_DIR }}/$HELM_TEMPLATE && cat ${{ env.GPT_CHART_DIR }}/$HELM_TEMPLATE
+      
       - name: KubeVal Kubernetes Objects
         if: ${{ !inputs.is_lib_chart }}
         run: >
-          docker run --rm -v $(pwd)/${{ env.CHART_DIR }}:/data
+          docker run --rm -v $(pwd)/${{ env.GPT_CHART_DIR }}:/data
           cytopia/kubeval
           $HELM_TEMPLATE
           --output=stdout
           --strict
           --ignore-missing-schemas
-      - run: rm -f $HELM_TEMPLATE
+      
+      - run: rm -f ${{ env.GPT_CHART_DIR }}/$HELM_TEMPLATE
         if: ${{ !inputs.is_lib_chart }}
+      
       - name: Get Chart Name from Chart.yaml
-        run: echo "CHART_NAME=$(yq eval .name ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+        run: echo "CHART_NAME=$(yq eval .name ${{ env.GPT_CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+      
       - name: Get Chart Tag/version from Chart.yaml if not inputted
-        if: ${{ inputs.chart_tag == '' }}
-        run: echo "CHART_TAG=$(yq eval .version ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+        id: extract-version
+        run: |
+          if [ "${{ inputs.chart_tag }}" == "" ]; then
+            VERSION=$(yq eval .version ${{ env.GPT_CHART_DIR }}/Chart.yaml)
+          else
+            VERSION="${{ inputs.chart_tag }}"
+          fi
+          echo "CHART_TAG=$VERSION" >> $GITHUB_ENV
+          echo "chart-version=$VERSION" >> $GITHUB_OUTPUT
+      
       - name: Chart Registry Overwrite Protection
         if: ${{ inputs.chart_overwrite == false }}
         run: '! $(helm pull oci://$REGISTRY/chart/$CHART_NAME --version $CHART_TAG)'
+      
       - name: Release Helm Chart
         uses: appany/helm-oci-chart-releaser@v0.4.0
         with:
           name: ${{ env.CHART_NAME }}
           repository: owolabi16/charts
           tag: ${{ env.CHART_TAG }}
-          path: ${{ env.CHART_DIR }}
+          path: ${{ env.GPT_CHART_DIR }}
           registry: ghcr.io
           registry_username: Owolabi16
           registry_password: ${{ secrets.PAT_TOKEN }}
         env:
           HELM_EXPERIMENTAL_OCI: 1
 
+  # Get Agent Flows chart version
   get-agent-flows-chart-version:
     runs-on: ubuntu-latest
     outputs:
       chart-version: ${{ steps.extract-version.outputs.chart-version }}
-    env:
-      REGISTRY: ghcr.io
-      DOCKER_HUB_USER: owolabialiu
-      HELM_TEMPLATE: template.yaml
-      CHART_DIR: './.github/workflows/charts/gpt-search'
-      CHART_OVERWRITE: 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -184,6 +199,7 @@ jobs:
           password: ${{ secrets.PAT_TOKEN }}
 
       - name: Run Pre-Build User-defined script
+        if: inputs.pre_build_script != ''
         run: bash -c '${{ inputs.pre_build_script }}'
 
       - name: Generate Docs
@@ -191,49 +207,66 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
         uses: docker://jnorwood/helm-docs:v1.11.0
         with:
-          chart_dir: ${{ env.CHART_DIR }}
+          chart_dir: ${{ env.AGENT_CHART_DIR }}
           chart_overwrite: ${{ env.CHART_OVERWRITE }}
           entrypoint: helm-docs
-          args: -g $(basename ${{ env.CHART_DIR }})
+          args: -g $(basename ${{ env.AGENT_CHART_DIR }})
+      
       - name: Install Dependencies
-        run: helm dep build ${{ env.CHART_DIR }} --skip-refresh
+        run: helm dep build ${{ env.AGENT_CHART_DIR }} --skip-refresh
+      
       - name: Helm Lint
-        run: helm lint ${{ env.CHART_DIR }}
+        run: helm lint ${{ env.AGENT_CHART_DIR }}
+      
       - name: Generate template.yaml
         if: ${{ !inputs.is_lib_chart }}
-        run: helm template ${{ env.CHART_DIR }} > ${{ env.CHART_DIR }}/$HELM_TEMPLATE && cat ${{ env.CHART_DIR }}/$HELM_TEMPLATE
+        run: helm template ${{ env.AGENT_CHART_DIR }} > ${{ env.AGENT_CHART_DIR }}/$HELM_TEMPLATE && cat ${{ env.AGENT_CHART_DIR }}/$HELM_TEMPLATE
+      
       - name: KubeVal Kubernetes Objects
         if: ${{ !inputs.is_lib_chart }}
         run: >
-          docker run --rm -v $(pwd)/${{ env.CHART_DIR }}:/data
+          docker run --rm -v $(pwd)/${{ env.AGENT_CHART_DIR }}:/data
           cytopia/kubeval
           $HELM_TEMPLATE
           --output=stdout
           --strict
           --ignore-missing-schemas
-      - run: rm -f $HELM_TEMPLATE
+      
+      - run: rm -f ${{ env.AGENT_CHART_DIR }}/$HELM_TEMPLATE
         if: ${{ !inputs.is_lib_chart }}
+      
       - name: Get Chart Name from Chart.yaml
-        run: echo "CHART_NAME=$(yq eval .name ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+        run: echo "CHART_NAME=$(yq eval .name ${{ env.AGENT_CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+      
       - name: Get Chart Tag/version from Chart.yaml if not inputted
-        if: ${{ inputs.chart_tag == '' }}
-        run: echo "CHART_TAG=$(yq eval .version ${{ env.CHART_DIR }}/Chart.yaml)" >> $GITHUB_ENV
+        id: extract-version
+        run: |
+          if [ "${{ inputs.chart_tag }}" == "" ]; then
+            VERSION=$(yq eval .version ${{ env.AGENT_CHART_DIR }}/Chart.yaml)
+          else
+            VERSION="${{ inputs.chart_tag }}"
+          fi
+          echo "CHART_TAG=$VERSION" >> $GITHUB_ENV
+          echo "chart-version=$VERSION" >> $GITHUB_OUTPUT
+      
       - name: Chart Registry Overwrite Protection
         if: ${{ inputs.chart_overwrite == false }}
         run: '! $(helm pull oci://$REGISTRY/chart/$CHART_NAME --version $CHART_TAG)'
+      
       - name: Release Helm Chart
         uses: appany/helm-oci-chart-releaser@v0.4.0
         with:
           name: ${{ env.CHART_NAME }}
           repository: owolabi16/charts
           tag: ${{ env.CHART_TAG }}
-          path: ${{ env.CHART_DIR }}
+          path: ${{ env.AGENT_CHART_DIR }}
           registry: ghcr.io
           registry_username: Owolabi16
           registry_password: ${{ secrets.PAT_TOKEN }}
         env:
-          HELM_EXPERIMENTAL_OCI: 1          
+          HELM_EXPERIMENTAL_OCI: 1
 
+  # Build Docker image for GPT
   build-gpt-image:
     runs-on: ubuntu-latest
     needs: 'get-gpt-chart-version'
@@ -244,20 +277,15 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: owolabialiu
-          # username: aliuowolabi
+          username: ${{ env.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
       
       - name: Set Docker Repository Variable
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       
       - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
       
       - name: Set Repository Owner
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
@@ -311,6 +339,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
   
+  # Build Docker image for Agent Flows
   build-agent-flows-image:
     runs-on: ubuntu-latest
     needs: 'get-agent-flows-chart-version'
@@ -321,20 +350,15 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: owolabialiu
-          # username: aliuowolabi
+          username: ${{ env.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
       
       - name: Set Docker Repository Variable
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       
       - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
       
       - name: Set Repository Owner
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
@@ -388,6 +412,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
       
+  # Build Docker image for Migrate Vector
   build-migrate-vector-image:
     runs-on: ubuntu-latest
     needs: 'build-gpt-image'
@@ -398,20 +423,15 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: owolabialiu
-          # username: aliuowolabi
+          username: ${{ env.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
       
       - name: Set Docker Repository Variable
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       
       - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
       
       - name: Set Repository Owner
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
@@ -465,6 +485,7 @@ jobs:
           cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}   
       
+  # Build Docker image for Migrate Agent
   build-migrate-agent-image:
     runs-on: ubuntu-latest
     needs: 'build-agent-flows-image'
@@ -475,20 +496,15 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: owolabialiu
-          # username: aliuowolabi
+          username: ${{ env.DOCKER_HUB_USER }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          # password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
       
       - name: Set Docker Repository Variable
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_ENV
       
       - name: Set Docker Repository Output
         id: docker-repo
-        run: echo "DOCKER_REPOSITORY=owolabialiu/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-        # run: echo "DOCKER_REPOSITORY=aliuowolabi/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
-
+        run: echo "DOCKER_REPOSITORY=${{ env.DOCKER_HUB_USER }}/$( echo ${{ github.repository }} | awk -F '/' '{print $2}' | awk '{print tolower($0)}' )" >> $GITHUB_OUTPUT
       
       - name: Set Repository Owner
         run: echo "REPO_OWNER=$( echo ${{ github.repository_owner }} | awk '{print tolower($0)}' )" >> $GITHUB_ENV
@@ -541,357 +557,85 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ env.REPO_OWNER }}/cache:buildcache,mode=max
           target: ${{ inputs.build-target }}
-                
 
-  # docker-tests:
-  #   name: Run Tests using Docker Image
-  #   runs-on: ubuntu-latest
-  #   needs: build-gpt-image
-  #   if: github.event_name == 'pull_request'
-  #   timeout-minutes: 5
-  #   env:
-  #     # DOCKER_REPO: ${{ needs.build-gpt-image.outputs.docker-repo }}
-  #     DOCKER_REPO: 'aliuowolabi/search_gpt'
-  #     DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
-  #     DOCKER_TEST_IMAGE_TAG: gpt-search-test
-  #   steps:
-  #     - name: Check out code
-  #       uses: actions/checkout@v3
-
-  #     - name: Login to Docker Hub
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: registry.hub.docker.com
-  #         # username: owolabialiu
-  #         username: aliuowolabi
-  #         # password: ${{ secrets.DOCKER_HUB_TOKEN }}
-  #         password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v2
-  #       with:
-  #         install: true
-  #         use: true
-  #         driver-opts: image=moby/buildkit:latest 
-
-  #     - name: Direct Docker Login
-  #       run: |
-  #         echo "${{ secrets.DOCKER_HUB_TOKEN2 }}" | docker login -u aliuowolabi --password-stdin
-  #         docker pull hello-world
-  #         echo "Docker explicit login successful!"
-
-  #     - name: Build and push
-  #       uses: docker/build-push-action@v2
-  #       with:
-  #         context: .
-  #         push: true
-  #         platforms: linux/amd64,linux/arm64
-  #         tags: aliuowolabi/search_gpt:${{ env.DOCKER_TAG }}
-      
-  #     - name: Build Test Image
-  #       run: >
-  #         docker buildx build
-  #         --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
-  #         -f Dockerfile
-  #         --load 
-  #         -t $DOCKER_TEST_IMAGE_TAG .      
-      
-  #     - name: Execute Pytest
-  #       run: |
-  #         set -o pipefail
-  #         docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
-  #           --cov-report=xml:/tmp/coverage.xml \
-  #           --cov-report=term \
-  #           --junitxml=/tmp/pytest.xml \
-  #           --cov=gpt_search | tee /tmp/pytest-coverage.txt
-      
-  #     - name: Pytest coverage comment
-  #       if: always()
-  #       uses: MishaKav/pytest-coverage-comment@main
-  #       with:
-  #         pytest-coverage-path: /tmp/coverage.xml
-  #         junitxml-path: /tmp/pytest.xml
-  #         title: Coverage Report
-  #         badge-title: Coverage
-
-  # release-to-rc-next:
-  #   runs-on: ubuntu-latest
-  #   needs: [build-migrate-agent-image, build-migrate-vector-image]
-  #   env:
-  #     GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
-  #     AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
-  #     GPT_CHART_OVERWRITE: "true"
-  #     AGENT_FLOW_CHART_OVERWRITE: "true"
-  #   steps:
-  #     - name: Release to RC Next
-  #       run: |
-  #         echo "Releasing GPT chart with tag: $GPT_CHART_TAG"
-  #         echo "Releasing Agent Flow chart with tag: $AGENT_FLOW_CHART_TAG"
-
-  # release-to-staging:
-  #   runs-on: ubuntu-latest
-  #   needs: [build-migrate-agent-image, build-migrate-vector-image]
-  #   env:
-  #     GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
-  #     AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
-  #     GPT_CHART_OVERWRITE: ${{ inputs.chart_overwrite == true }}
-  #     AGENT_FLOW_CHART_OVERWRITE: ${{ inputs.chart_overwrite == true }}
-  #   steps:        
-  #     - name: Release to Staging
-  #       run: |
-  #         echo "Releasing GPT chart with tag: $GPT_CHART_TAG"
-  #         echo "Releasing Agent Flow chart with tag: $AGENT_FLOW_CHART_TAG"
-
-  # release-to-rc-next:
-  #   runs-on: ubuntu-latest
-  #   # Only release to rc-next if it's a manual trigger AND the branch is NOT development
-  #   if: github.event_name == 'workflow_dispatch' && inputs.git_branch != 'development'
-  #   needs: [build-migrate-agent-image, build-migrate-vector-image]
-  #   env:
-  #     GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
-  #     AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
-  #     GPT_CHART_OVERWRITE: "true"
-  #     AGENT_FLOW_CHART_OVERWRITE: "true"
-  #     DOCKER_REPO: 'aliuowolabi/search_gpt'
-  #     DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
-  #     DOCKER_TEST_IMAGE_TAG: gpt-search-test
-  #   steps:
-  #     # Run tests only on PR
-  #     - name: Check out code for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: actions/checkout@v3
-
-  #     - name: Login to Docker Hub for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: registry.hub.docker.com
-  #         username: aliuowolabi
-  #         password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
-
-  #     - name: Set up Docker Buildx for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/setup-buildx-action@v2
-  #       with:
-  #         install: true
-  #         use: true
-  #         driver-opts: image=moby/buildkit:latest 
-
-  #     - name: Direct Docker Login for tests
-  #       if: github.event_name == 'pull_request'
-  #       run: |
-  #         echo "${{ secrets.DOCKER_HUB_TOKEN2 }}" | docker login -u aliuowolabi --password-stdin
-  #         docker pull hello-world
-  #         echo "Docker explicit login successful!"
-
-  #     - name: Build and push test image
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/build-push-action@v2
-  #       with:
-  #         context: .
-  #         push: true
-  #         platforms: linux/amd64,linux/arm64
-  #         tags: aliuowolabi/search_gpt:${{ env.DOCKER_TAG }}
-      
-  #     - name: Build Test Image
-  #       if: github.event_name == 'pull_request'
-  #       run: >
-  #         docker buildx build
-  #         --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
-  #         -f Dockerfile
-  #         --load 
-  #         -t $DOCKER_TEST_IMAGE_TAG .      
-      
-  #     - name: Execute Pytest
-  #       if: github.event_name == 'pull_request'
-  #       run: |
-  #         set -o pipefail
-  #         docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
-  #           --cov-report=xml:/tmp/coverage.xml \
-  #           --cov-report=term \
-  #           --junitxml=/tmp/pytest.xml \
-  #           --cov=gpt_search | tee /tmp/pytest-coverage.txt
-      
-  #     - name: Pytest coverage comment
-  #       if: github.event_name == 'pull_request' && always()
-  #       uses: MishaKav/pytest-coverage-comment@main
-  #       with:
-  #         pytest-coverage-path: /tmp/coverage.xml
-  #         junitxml-path: /tmp/pytest.xml
-  #         title: Coverage Report
-  #         badge-title: Coverage
-
-  #     # Release steps
-  #     - name: Release to RC Next
-  #       run: |
-  #         echo "Releasing GPT chart with tag: $GPT_CHART_TAG"
-  #         echo "Releasing Agent Flow chart with tag: $AGENT_FLOW_CHART_TAG"
-
-
-  # release-to-staging:
-  #   runs-on: ubuntu-latest
-  #   # Release to staging if it's either:
-  #   # 1. A push to the development branch OR
-  #   # 2. A manual trigger with the development branch specified
-  #   if: (github.event_name == 'push' && github.ref == 'refs/heads/development') || (github.event_name == 'workflow_dispatch' && inputs.git_branch == 'development')
-  #   needs: [build-migrate-agent-image, build-migrate-vector-image]
-  #   env:
-  #     GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
-  #     AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
-  #     GPT_CHART_OVERWRITE: ${{ inputs.chart_overwrite == true }}
-  #     AGENT_FLOW_CHART_OVERWRITE: ${{ inputs.chart_overwrite == true }}
-  #     DOCKER_REPO: 'aliuowolabi/search_gpt'
-  #     DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
-  #     DOCKER_TEST_IMAGE_TAG: gpt-search-test
-  #   steps:
-  #     # Run tests only on PR
-  #     - name: Check out code for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: actions/checkout@v3
-
-  #     - name: Login to Docker Hub for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/login-action@v2
-  #       with:
-  #         registry: registry.hub.docker.com
-  #         username: aliuowolabi
-  #         password: ${{ secrets.DOCKER_HUB_TOKEN2 }}
-
-  #     - name: Set up Docker Buildx for tests
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/setup-buildx-action@v2
-  #       with:
-  #         install: true
-  #         use: true
-  #         driver-opts: image=moby/buildkit:latest 
-
-  #     - name: Direct Docker Login for tests
-  #       if: github.event_name == 'pull_request'
-  #       run: |
-  #         echo "${{ secrets.DOCKER_HUB_TOKEN2 }}" | docker login -u aliuowolabi --password-stdin
-  #         docker pull hello-world
-  #         echo "Docker explicit login successful!"
-
-  #     - name: Build and push test image
-  #       if: github.event_name == 'pull_request'
-  #       uses: docker/build-push-action@v2
-  #       with:
-  #         context: .
-  #         push: true
-  #         platforms: linux/amd64,linux/arm64
-  #         tags: aliuowolabi/search_gpt:${{ env.DOCKER_TAG }}
-      
-  #     - name: Build Test Image
-  #       if: github.event_name == 'pull_request'
-  #       run: >
-  #         docker buildx build
-  #         --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
-  #         -f Dockerfile
-  #         --load 
-  #         -t $DOCKER_TEST_IMAGE_TAG .      
-      
-  #     - name: Execute Pytest
-  #       if: github.event_name == 'pull_request'
-  #       run: |
-  #         set -o pipefail
-  #         docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
-  #           --cov-report=xml:/tmp/coverage.xml \
-  #           --cov-report=term \
-  #           --junitxml=/tmp/pytest.xml \
-  #           --cov=gpt_search | tee /tmp/pytest-coverage.txt
-      
-  #     - name: Pytest coverage comment
-  #       if: github.event_name == 'pull_request' && always()
-  #       uses: MishaKav/pytest-coverage-comment@main
-  #       with:
-  #         pytest-coverage-path: /tmp/coverage.xml
-  #         junitxml-path: /tmp/pytest.xml
-  #         title: Coverage Report
-  #         badge-title: Coverage
-          
-  #     # Release steps        
-  #     - name: Release to Staging
-  #       run: |
-  #         echo "Releasing GPT chart with tag: $GPT_CHART_TAG"
-  #         echo "Releasing Agent Flow chart with tag: $AGENT_FLOW_CHART_TAG"
-
+  # Release to environment
   release-to-environment:
-      runs-on: ubuntu-latest
-      needs: [build-migrate-agent-image, build-migrate-vector-image]
-      if: |
-        success() && 
-        (
-          (github.event_name == 'workflow_dispatch' && inputs.git_branch != 'development') || 
-          (github.event_name == 'push' && github.ref == 'refs/heads/development') || 
-          (github.event_name == 'workflow_dispatch' && inputs.git_branch == 'development') ||
-          (github.event_name == 'pull_request')
-        )
-      env:
-        CHART_TAG: ${{ needs.release-helm-charts.outputs.chart-version }}
-        CHART_OVERWRITE: ${{ inputs.chart_overwrite }}
-        DOCKER_REPO: 'aliuowolabi/search_gpt'
-        DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
-        DOCKER_TEST_IMAGE_TAG: gpt-search-test
-      steps:
-        - name: Check out code
-          uses: actions/checkout@v3
+    runs-on: ubuntu-latest
+    needs: [build-migrate-agent-image, build-migrate-vector-image]
+    if: |
+      success() && 
+      (
+        (github.event_name == 'workflow_dispatch' && inputs.git_branch != 'development') || 
+        (github.event_name == 'push' && github.ref == 'refs/heads/development') || 
+        (github.event_name == 'workflow_dispatch' && inputs.git_branch == 'development') ||
+        (github.event_name == 'pull_request')
+      )
+    env:
+      CHART_TAG: ${{ needs.get-gpt-chart-version.outputs.chart-version }}
+      CHART_OVERWRITE: ${{ inputs.chart_overwrite }}
+      DOCKER_REPO: 'aliuowolabi/search_gpt'
+      DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
+      DOCKER_TEST_IMAGE_TAG: gpt-search-test
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
 
-        # Run tests if this is a PR
-        - name: Login to Docker Hub for tests
-          if: github.event_name == 'pull_request'
-          uses: docker/login-action@v2
-          with:
-            registry: registry.hub.docker.com
-            username: owolabialiu
-            password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      # Run tests if this is a PR
+      - name: Login to Docker Hub for tests
+        if: github.event_name == 'pull_request'
+        uses: docker/login-action@v2
+        with:
+          registry: registry.hub.docker.com
+          username: ${{ env.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-        - name: Set up Docker Buildx for tests
-          if: github.event_name == 'pull_request'
-          uses: docker/setup-buildx-action@v2
-          with:
-            install: true
-            use: true
-            driver-opts: image=moby/buildkit:latest 
+      - name: Set up Docker Buildx for tests
+        if: github.event_name == 'pull_request'
+        uses: docker/setup-buildx-action@v2
+        with:
+          install: true
+          use: true
+          driver-opts: image=moby/buildkit:latest 
 
-        - name: Build Test Image
-          if: github.event_name == 'pull_request'
-          run: >
-            docker buildx build
-            --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
-            -f Dockerfile.test
-            --load 
-            -t $DOCKER_TEST_IMAGE_TAG .      
-        
-        - name: Execute Pytest
-          if: github.event_name == 'pull_request'
-          run: |
-            set -o pipefail
-            docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
-              --cov-report=xml:/tmp/coverage.xml \
-              --cov-report=term \
-              --junitxml=/tmp/pytest.xml \
-              --cov=gpt_search | tee /tmp/pytest-coverage.txt
-        
-        - name: Pytest coverage comment
-          if: github.event_name == 'pull_request' && always()
-          uses: MishaKav/pytest-coverage-comment@main
-          with:
-            pytest-coverage-path: /tmp/coverage.xml
-            junitxml-path: /tmp/pytest.xml
-            title: Coverage Report
-            badge-title: Coverage
+      - name: Build Test Image
+        if: github.event_name == 'pull_request'
+        run: >
+          docker buildx build
+          --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
+          -f Dockerfile.test
+          --load 
+          -t $DOCKER_TEST_IMAGE_TAG .      
+      
+      - name: Execute Pytest
+        if: github.event_name == 'pull_request'
+        run: |
+          set -o pipefail
+          docker run -v /tmp:/tmp -e PYTHONPATH=/app $DOCKER_TEST_IMAGE_TAG pytest ./gpt_search/test/ \
+            --cov-report=xml:/tmp/coverage.xml \
+            --cov-report=term \
+            --junitxml=/tmp/pytest.xml \
+            --cov=gpt_search | tee /tmp/pytest-coverage.txt
+      
+      - name: Pytest coverage comment
+        if: github.event_name == 'pull_request' && always()
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: /tmp/coverage.xml
+          junitxml-path: /tmp/pytest.xml
+          title: Coverage Report
+          badge-title: Coverage
 
-        - name: Determine environment
-          id: set-env
-          run: |
-            if [ "${{ github.ref }}" == "refs/heads/development" ] || [ "${{ inputs.git_branch }}" == "development" ]; then
-              echo "ENVIRONMENT=staging" >> $GITHUB_ENV
-              echo "environment=staging" >> $GITHUB_OUTPUT
-            else
-              echo "ENVIRONMENT=rc-next" >> $GITHUB_ENV
-              echo "environment=rc-next" >> $GITHUB_OUTPUT
-            fi
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/development" ] || [ "${{ inputs.git_branch }}" == "development" ]; then
+            echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          else
+            echo "ENVIRONMENT=rc-next" >> $GITHUB_ENV
+            echo "environment=rc-next" >> $GITHUB_OUTPUT
+          fi
 
-        - name: Releasing to ${{ steps.set-env.outputs.environment }} environment
-          run: |
-            echo "Releasing charts with tag: $CHART_TAG to environment: $ENVIRONMENT"
+      - name: Releasing to ${{ steps.set-env.outputs.environment }} environment
+        run: |
+          echo "Releasing charts with tag: $CHART_TAG to environment: $ENVIRONMENT"
