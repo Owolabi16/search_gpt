@@ -549,13 +549,14 @@ jobs:
     needs: build-gpt-image
     timeout-minutes: 5
     env:
-      DOCKER_REPO: ${{ needs.build-gpt-image.outputs.docker-repo }}
+      # DOCKER_REPO: ${{ needs.build-gpt-image.outputs.docker-repo }}
+      DOCKER_REPO: 'aliuowolabi/search_gpt'
       DOCKER_TAG: ${{ needs.build-gpt-image.outputs.docker-tag }}
       DOCKER_TEST_IMAGE_TAG: gpt-search-test
     steps:
       - name: Check out code
         uses: actions/checkout@v3
-        
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
