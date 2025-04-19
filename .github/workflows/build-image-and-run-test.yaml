@@ -644,7 +644,7 @@ jobs:
 
   release-to-rc-next:
     runs-on: ubuntu-latest
-    needs: [build-migrate-agent-image, build-migrate-vector-image, build-gpt-image, gpt-version, agent-flows-version]
+    needs: [build-migrate-agent-image, build-migrate-vector-image]
     env:
       GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
       AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
@@ -728,7 +728,7 @@ jobs:
 
   release-to-staging:
     runs-on: ubuntu-latest
-    needs: [build-migrate-agent-image, build-migrate-vector-image, build-gpt-image, gpt-version, agent-flows-version]
+    needs: [build-migrate-agent-image, build-migrate-vector-image]
     env:
       GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
       AGENT_FLOW_CHART_TAG: ${{ needs.agent-flows-version.outputs.chart-image-tag-version }}
