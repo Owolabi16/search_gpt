@@ -573,19 +573,19 @@ jobs:
           use: true
           driver-opts: image=moby/buildkit:latest 
 
-      - name: Check Docker Login Status
+      - name: Direct Docker Login
         run: |
-          # Try a simple docker command to verify authentication
+          echo "${{ secrets.DOCKER_HUB_TOKEN2 }}" | docker login -u aliuowolabi --password-stdin
           docker pull hello-world
-          echo "Docker login successful!"   
-      
+          echo "Docker explicit login successful!"
+
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
+          tags: aliuowolabi/search_gpt:${{ env.DOCKER_TAG }}
       
       - name: Build Test Image
         run: >
