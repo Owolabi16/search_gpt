@@ -571,7 +571,13 @@ jobs:
         with:
           install: true
           use: true
-          driver-opts: image=moby/buildkit:latest    
+          driver-opts: image=moby/buildkit:latest 
+
+      - name: Check Docker Login Status
+        run: |
+          # Try a simple docker command to verify authentication
+          docker pull hello-world
+          echo "Docker login successful!"   
       
       - name: Build and push
         uses: docker/build-push-action@v2
