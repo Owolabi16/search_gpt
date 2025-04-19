@@ -644,6 +644,8 @@ jobs:
 
   release-to-rc-next:
     runs-on: ubuntu-latest
+    # Only release to rc-next if it's a manual trigger AND the branch is NOT development
+    if: github.event_name == 'workflow_dispatch' && inputs.git_branch != 'development'
     needs: [build-migrate-agent-image, build-migrate-vector-image]
     env:
       GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
@@ -728,6 +730,10 @@ jobs:
 
   release-to-staging:
     runs-on: ubuntu-latest
+    # Release to staging if it's either:
+    # 1. A push to the development branch OR
+    # 2. A manual trigger with the development branch specified
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/development') || (github.event_name == 'workflow_dispatch' && inputs.git_branch == 'development')
     needs: [build-migrate-agent-image, build-migrate-vector-image]
     env:
       GPT_CHART_TAG: ${{ needs.gpt-version.outputs.chart-image-tag-version }}
