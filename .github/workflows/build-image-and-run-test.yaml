@@ -589,9 +589,10 @@ jobs:
       
       - name: Build Test Image
         run: >
-          docker build
+          docker buildx build
           --build-arg IMAGE=$DOCKER_REPO:$DOCKER_TAG
           -f Dockerfile
+          --load 
           -t $DOCKER_TEST_IMAGE_TAG .      
       
       - name: Execute Pytest
