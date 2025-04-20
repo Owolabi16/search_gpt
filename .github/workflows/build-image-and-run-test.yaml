@@ -169,7 +169,7 @@ jobs:
           tag: ${{ env.CHART_TAG }}
           path: ${{ env.GPT_CHART_DIR }}
           registry: ghcr.io
-          registry_username: Owolabi16
+          registry_username: ${{ github.repository_owner }}
           registry_password: ${{ secrets.PAT_TOKEN }}
         env:
           HELM_EXPERIMENTAL_OCI: 1
